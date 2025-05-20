@@ -9,6 +9,7 @@ events.out.tfevents.*
 *log.txt
 *cookie.bin
 *.gradio/
+Qwen2.5-7B-Instruct
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

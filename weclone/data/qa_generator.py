@@ -10,6 +10,7 @@ from pandas import Timestamp
 from llamafactory.extras.packages import is_vllm_available
 
 from weclone.data.clean.strategies import LLMCleaningStrategy
+from weclone.data.clean.strategies_online import OlineLLMCleaningStrategy
 from weclone.utils.config import load_config
 from weclone.utils.log import logger
 from weclone.data.models import ChatMessage, CutMessage, skip_type_list, QaPair
@@ -81,7 +82,10 @@ class DataProcessor:
 
         if self.config.get("clean_dataset", {}).get("enable_clean", False):
             if self.config.get("clean_dataset", {}).get("clean_strategy", "llm") == "llm":
-                self.clean_strategy = LLMCleaningStrategy(make_dataset_config=self.config)
+                if self.config.get("online_llm_clear"):
+                    self.clean_strategy = OlineLLMCleaningStrategy(make_dataset_config=self.config)
+                else:
+                    self.clean_strategy = LLMCleaningStrategy(make_dataset_config=self.config)
         self.c = self.config
 
     def main(self):
