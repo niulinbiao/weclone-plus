@@ -60,9 +60,20 @@ class OlineLLMCleaningStrategy(CleaningStrategy):
                     stream=False,
                 )
                 result_text = response.choices[0].message.content
+                # 如果有 <think> … </think>，只保留 </think> 之后的内容
+                if "</think>" in result_text:
+                    result_text = result_text.split("</think>", 1)[1]
+                else:
+                    result_text = result_text
                 # 去掉开头和结尾的 ```json 或 ``` 等代码块标记
                 result_text = re.sub(r"^```json\s*|```$", "", result_text.strip(), flags=re.MULTILINE)
-                score_list = json.loads(result_text)
+                # 如果偶尔的几次解析失败就跳过
+                try:
+                    score_list = json.loads(result_text)
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON 解析失败，跳过本批次: {e}\n内容：{result_text}")
+                    continue
+                
                 for item in score_list:
                     parsed_scores.append(QaPairScore(**item))
             except Exception as e:

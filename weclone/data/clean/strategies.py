@@ -55,6 +55,8 @@ class LLMCleaningStrategy(CleaningStrategy):
             bad_words=[r"\n"],
         )
 
+        print("模型输出：",outputs)
+
         parsed_scores: List[QaPairScore] = []
         for result in outputs:
             try:
