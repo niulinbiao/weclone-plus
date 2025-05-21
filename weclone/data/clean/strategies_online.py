@@ -2,13 +2,13 @@ import re
 import json
 import pandas as pd
 from tqdm import tqdm
-from openai import OpenAI
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Dict, List
 from langchain_core.prompts import PromptTemplate
 from weclone.data.models import QaPair, QaPairScore
 from weclone.prompts.clean_data import CLEAN_PROMPT,ONLINE_LLM_CLEAN_PROMPT
+from weclone.core.inference.online_infer import OnlineLLM
 from weclone.utils.log import logger
 
 @dataclass
@@ -30,14 +30,16 @@ class OlineLLMCleaningStrategy(CleaningStrategy):
 
         logger.info(f"使用模型 {self.make_dataset_config.get('model_name', '')}")
 
-        client = OpenAI(
-            api_key=self.make_dataset_config.get("llm_api_key", ""),
-            base_url=self.make_dataset_config.get("base_url", ""),
+        client = OnlineLLM(
+            api_key = self.make_dataset_config.get("llm_api_key"),
+            base_url = self.make_dataset_config.get("base_url"),
+            model_name = self.make_dataset_config.get("model_name"),
+            default_system = self.make_dataset_config.get("default_system")
         )
         prompt_template = PromptTemplate.from_template(ONLINE_LLM_CLEAN_PROMPT)
 
         parsed_scores = []
-        clean_batch_size = int(self.make_dataset_config.get("clean_batch_size", 3))  # 默认同时处理3 条
+        clean_batch_size = int(self.make_dataset_config.get("clean_batch_size", 10)) 
         for i in tqdm(range(0, len(data), clean_batch_size), desc="在线模型评分进度"):
             batch = data[i : i + clean_batch_size]
             # 构造当前批次的 qa_list
@@ -51,20 +53,12 @@ class OlineLLMCleaningStrategy(CleaningStrategy):
                 "qa_list": qa_list_json
             }).text
             try:
-                response = client.chat.completions.create(
-                    model=self.make_dataset_config.get("model_name", "deepseek-chat"),
-                    messages=[
-                        {"role": "system", "content": self.make_dataset_config.get("default_system", "")},
-                        {"role": "user", "content": prompt_text},
-                    ],
-                    stream=False,
-                )
+                response = client.chat(prompt_text)
                 result_text = response.choices[0].message.content
+                # print("大模型返回：",result_text)
                 # 如果有 <think> … </think>，只保留 </think> 之后的内容
                 if "</think>" in result_text:
                     result_text = result_text.split("</think>", 1)[1]
-                else:
-                    result_text = result_text
                 # 去掉开头和结尾的 ```json 或 ``` 等代码块标记
                 result_text = re.sub(r"^```json\s*|```$", "", result_text.strip(), flags=re.MULTILINE)
                 # 如果偶尔的几次解析失败就跳过
