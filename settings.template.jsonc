@@ -7,10 +7,11 @@
         "default_system": "请你扮演一名人类，不要说自己是人工智能",
         "finetuning_type": "lora",
         "trust_remote_code": true,
-        "online_llm_clear":false,
+        "online_llm_clear":true,
         "base_url":"https://api.deepseek.com",
         "llm_api_key":"sk-cf4d9418efac4c7bb6c137d76327b4c6",
-        "model_name":"deepseek-chat"
+        "model_name":"deepseek-chat",
+        "clean_batch_size":10
     },
     "make_dataset_args": {
         //数据处理配置

@@ -1,13 +1,14 @@
 import re
 import json
 import pandas as pd
+from tqdm import tqdm
 from openai import OpenAI
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Dict, List
 from langchain_core.prompts import PromptTemplate
 from weclone.data.models import QaPair, QaPairScore
-from weclone.prompts.clean_data import CLEAN_PROMPT
+from weclone.prompts.clean_data import CLEAN_PROMPT,ONLINE_LLM_CLEAN_PROMPT
 from weclone.utils.log import logger
 
 @dataclass
@@ -27,18 +28,28 @@ class OlineLLMCleaningStrategy(CleaningStrategy):
     def judge(self, data: List[QaPair]) -> None:
         logger.info("开始使用在线模型对数据打分")
 
-        logger.info(self.make_dataset_config.get("llm_api_key", ""))
-        logger.info(self.make_dataset_config.get("base_url", ""))
+        logger.info(f"使用模型 {self.make_dataset_config.get('model_name', '')}")
 
         client = OpenAI(
             api_key=self.make_dataset_config.get("llm_api_key", ""),
             base_url=self.make_dataset_config.get("base_url", ""),
         )
-        prompt_template = PromptTemplate.from_template(CLEAN_PROMPT)
+        prompt_template = PromptTemplate.from_template(ONLINE_LLM_CLEAN_PROMPT)
 
         parsed_scores = []
-        for qa in data:
-            prompt_text = prompt_template.invoke({"id": qa.id, "Q": qa.instruction, "A": qa.output}).text
+        clean_batch_size = int(self.make_dataset_config.get("clean_batch_size", 3))  # 默认同时处理3 条
+        for i in tqdm(range(0, len(data), clean_batch_size), desc="在线模型评分进度"):
+            batch = data[i : i + clean_batch_size]
+            # 构造当前批次的 qa_list
+            qa_list = [
+                {"id": qa.id, "Q": qa.instruction, "A": qa.output}
+                for qa in batch
+            ]
+            qa_list_json = json.dumps(qa_list, ensure_ascii=False)
+            # 填充模板
+            prompt_text = prompt_template.invoke({
+                "qa_list": qa_list_json
+            }).text
             try:
                 response = client.chat.completions.create(
                     model=self.make_dataset_config.get("model_name", "deepseek-chat"),
@@ -51,10 +62,9 @@ class OlineLLMCleaningStrategy(CleaningStrategy):
                 result_text = response.choices[0].message.content
                 # 去掉开头和结尾的 ```json 或 ``` 等代码块标记
                 result_text = re.sub(r"^```json\s*|```$", "", result_text.strip(), flags=re.MULTILINE)
-                print(result_text)
-                score_data = json.loads(result_text)
-                qa_score = QaPairScore(**score_data)
-                parsed_scores.append(qa_score)
+                score_list = json.loads(result_text)
+                for item in score_list:
+                    parsed_scores.append(QaPairScore(**item))
             except Exception as e:
                 logger.error(f"调用在线模型或解析结果失败，QA ID {qa.id}: {str(e)}")
 
