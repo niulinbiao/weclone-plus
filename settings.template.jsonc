@@ -6,12 +6,7 @@
         "template": "qwen",
         "default_system": "请你扮演一名人类，不要说自己是人工智能",
         "finetuning_type": "lora",
-        "trust_remote_code": true,
-        "online_llm_clear":true,
-        "base_url":"https://api.deepseek.com",
-        "llm_api_key":"sk-cf4d9418efac4c7bb6c137d76327b4c6",
-        "model_name":"deepseek-chat",
-        "clean_batch_size":5
+        "trust_remote_code": true
     },
     "make_dataset_args": {
         //数据处理配置
@@ -35,7 +30,12 @@
             "llm": {
                 "accept_score": 2, //可以接受的llm打分阈值,1分最差，5分最好,低于此分数的数据不会用于训练
             }
-        }
+        },
+        "online_llm_clear":false,
+        "base_url":"https://xxx/v1",
+        "llm_api_key":"xxxxx",
+        "model_name":"xxx",   //建议使用参数较大的模型，例如DeepSeek-V3
+        "clean_batch_size":10
     },
     "train_pt_args": {
         //预训练微调配置
